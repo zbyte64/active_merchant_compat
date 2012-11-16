@@ -49,12 +49,14 @@ module ActiveMerchant #:nodoc:
       
       def store(creditcard, options = {})
         #TODO check that the responses are successful, if not delete other profiles
-        options[:profile] = {
-          :email => options[:email] || creditcard.email #TODO verify this
-        }
-        response = create_customer_profile(options)
-        _, profile_id, _, _ = split_authorization(response.authorization)
-        options[:customer_profile_id] = profile_id
+        if not options[:customer_profile_id]
+          options[:profile] = {
+            :email => options[:email] #TODO where to get this from
+          }
+          response = create_customer_profile(options)
+          _, profile_id, _, _ = split_authorization(response.authorization)
+          options[:customer_profile_id] = profile_id
+        end
         options[:payment_profile] = {
           :payment => {
             :credit_card => creditcard
@@ -62,11 +64,12 @@ module ActiveMerchant #:nodoc:
         }
         response = create_customer_payment_profile(options)
         _, _, payment_profile_id, ship_address_id = split_authorization(response.authorization)
-        if options[:ship_address]:
+        if options[:ship_address]
           #TODO copy options instead
           options[:address] = options[:ship_address]
           response = create_customer_shipping_address(options)
           _, _, _, ship_address_id = split_authorization(response.authorization)
+        end
         response.authorization = authorization_string("", profile_id, payment_profile_id, ship_address_id)
         return response
       end
@@ -107,11 +110,10 @@ module ActiveMerchant #:nodoc:
       end
 
       # Updates a customer subscription/profile
-      #TODO
       def update(reference, creditcard, options = {})
-        requires!(options, :order_id)
-        setup_address_hash(options)
-        commit(build_update_subscription_request(reference, creditcard, options), options)
+        trans_id, profile_id, payment_profile_id, shipping_address_id = split_authorization(reference)
+        options[:customer_profile_id] = profile_id
+        store(creditcard, options)
       end
 
       # Removes a customer subscription/profile
