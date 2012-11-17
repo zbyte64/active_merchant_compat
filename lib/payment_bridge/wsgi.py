@@ -8,6 +8,7 @@ import random
 
 random.seed()
 
+JSONP_RESPONSE = '%(callback)s(%(json_data)s);'
 
 def flatten_dictionary(dictionary):
     new_dict = dict()
@@ -32,7 +33,12 @@ class Bridge(object):
             out_payload = self.slave.stdout.readline()
         finally:
             self.lock.release()
-        params = json.loads(out_payload)
+        try:
+            params = json.loads(out_payload)
+        except ValueError as error:
+            print error
+            print out_payload
+            raise
         
         #ensure we don't have someone else's response
         assert params['request_id'] == kwargs['request_id']
@@ -73,16 +79,17 @@ class BaseDirectPostApplication(object):
         """
         raise NotImplementedError
     
-    def process_direct_post(self, post_data):
-        post_data = flatten_dictionary(post_data)
-        #encrypted data gives us our necessary sensitive variables: currency, amount, gateway, etc
-        encrypted_data = post_data[self.encrypted_field]
+    def call_bridge(self, data, secure_data, gateway, action):
+        return self.bridge.send(data=data, secure_data=secure_data, gateway=gateway, action=action)
+    
+    def process_direct_post(self, caller_data):
+        encrypted_data = caller_data[self.encrypted_field]
         decrypted_data = self.decrypt_data(encrypted_data)
         gateway_key = decrypted_data['gateway']
         action = decrypted_data['action']
         
-        response_params = self.bridge.send(post_data=post_data, secure_data=decrypted_data, gateway=gateway_key, action=action)
-        return response_params
+        response_params = self.call_bridge(data=caller_data, secure_data=decrypted_data, gateway=gateway_key, action=action)
+        return {self.encrypted_field: self.encrypt_data(response_params)}
     
     def render_bad_request(self, environ, start_response, response_body):
         status = '405 METHOD NOT ALLOWED'
@@ -94,30 +101,43 @@ class BaseDirectPostApplication(object):
         return [response_body]
     
     def __call__(self, environ, start_response):
-        if environ['REQUEST_METHOD'].upper() != 'POST':
-            return self.render_bad_request(environ, start_response, "Request method must me a post")
+        if environ['REQUEST_METHOD'].upper() == 'GET':
+            
+            #read our caller data from GET params
+            request_body = environ.get('QUERY_STRING', '')
+            caller_data = flatten_dictionary(parse_qs(request_body))
+            
+            callback = caller_data.get('callback')
+            if not callback:
+                return self.render_bad_request(environ, start_response, "Invalid JSONP request; Please provide 'callback'.")
+            
+            params = self.process_direct_post(caller_data)
+            
+            response_body = JSONP_RESPONSE % {'callback':callback, 'json_data': json.dumps(params)}
+            
+            status = '200 OK'
+            content_type = 'text/javascript'
+        elif environ['REQUEST_METHOD'].upper() == 'POST':
+            # the environment variable CONTENT_LENGTH may be empty or missing
+            try:
+                request_body_size = int(environ.get('CONTENT_LENGTH', 0))
+            except (ValueError):
+                request_body_size = 0
+            
+            # read our caller data from POST params
+            request_body = environ['wsgi.input'].read(request_body_size)
+            caller_data = flatten_dictionary(parse_qs(request_body))
+            
+            params = self.process_direct_post(caller_data)
+            
+            response_body = '%s?%s' % (self.redirect_to, urlencode(params))
+            
+            status = '303 SEE OTHER'
+            content_type = 'text/html'
+        else:
+            return self.render_bad_request(environ, start_response, "Request method must be a POST or JSONP")
         
-        # the environment variable CONTENT_LENGTH may be empty or missing
-        try:
-            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
-        except (ValueError):
-            request_body_size = 0
-        
-        # When the method is POST the query string will be sent
-        # in the HTTP request body which is passed by the WSGI server
-        # in the file like wsgi.input environment variable.
-        request_body = environ['wsgi.input'].read(request_body_size)
-        #dictionary of arrays:
-        post_data = parse_qs(request_body)
-        
-        response_params = self.process_direct_post(post_data)
-        params = {self.encrypted_field: self.encrypt_data(response_params)}
-        
-        response_body = '%s?%s' % (self.redirect_to, urlencode(params))
-        
-        status = '303 SEE OTHER'
-        
-        response_headers = [('Content-Type', 'text/html'),
+        response_headers = [('Content-Type', content_type),
                       ('Content-Length', str(len(response_body)))]
         start_response(status, response_headers)
         
@@ -176,7 +196,7 @@ def sanity_test():
                  'cc_ccv': '111',
                  'bill_first_name':'John',
                  'bill_last_name': 'Smith',}
-    print bridge.send(test=True, gateway='bogus', action='store', post_data=bill_info)
+    print bridge.send(test=True, gateway='bogus', action='store', data=bill_info)
     
     bill_info = {'cc_number':'2', #for failure use 2
                  'cc_exp_year': '2015',
@@ -184,7 +204,7 @@ def sanity_test():
                  'cc_ccv': '111',
                  'bill_first_name':'John',
                  'bill_last_name': 'Smith',}
-    print bridge.send(test=True, gateway='bogus', action='store', post_data=bill_info)
+    print bridge.send(test=True, gateway='bogus', action='store', data=bill_info)
 
 if __name__ == '__main__':
     sanity_test()

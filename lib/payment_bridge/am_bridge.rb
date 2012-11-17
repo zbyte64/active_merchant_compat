@@ -26,13 +26,14 @@ class PaymentBridge
     end
     
     def get_gateway_class(name)
-        #TODO
-        if name == "bogus"
-            return ActiveMerchant::Billing::BogusGateway
-        elsif name == "paypal"
-            return ActiveMerchant::Billing::PaypalGateway
+        case name
+        when "bogus"
+          return ActiveMerchant::Billing::BogusGateway
+        when "paypal"
+          return ActiveMerchant::Billing::PaypalGateway
+        else
+          return nil
         end
-        return nil
     end
     
     def run()
@@ -42,7 +43,7 @@ class PaymentBridge
           #TODO we want to ensure we read one line at a time
           payload = JSON.parse(cmd)
           
-          post_data = payload['post_data']
+          data = payload['data']
           secure_data = payload['secure_data'] || {}
           action = payload['action']
           gateway = @gateways[payload['gateway']]
@@ -52,9 +53,9 @@ class PaymentBridge
                 'message' => "Unrecognized gateway",
                 'success' => false
             }
-          elsif post_data == nil
+          elsif data == nil
             callback_params = {
-                'message' => "No Post Data",
+                'message' => "No Data",
                 'success' => false
             }
           elsif secure_data == nil
@@ -68,9 +69,10 @@ class PaymentBridge
                 'success' => false
             }
           else
-            expanded_response = process_direct_post(gateway, action, post_data, secure_data)
+            expanded_response = process_direct_post(gateway, action, data, secure_data)
             callback_params = construct_callback_params(expanded_response)
           end
+          callback_params['gateway'] = payload['gateway']
           callback_params['action'] = action
           callback_params['request_id'] = payload['request_id']
           
@@ -80,9 +82,11 @@ class PaymentBridge
     end
     
     def construct_callback_params(expanded_response)
-        response = expanded_response['response']
         response_params = expanded_response.fetch('passthrough', {})
-        response_params = response_params.merge({
+        
+        response = expanded_response['response']
+        if response != nil
+          response_params = response_params.merge({
             #'action': action,
             #'gateway': decrypted_data['gateway'],
             'success' => response.success?(),
@@ -94,8 +98,16 @@ class PaymentBridge
             'authorization' => response.authorization #this may also be your card store id
             #'avs' => response.avs_result,
             #'cvv' => response.cvv_result,
-        })
-        if expanded_response.has_key?('credit_card')
+          })
+        else
+          response_params['success'] = false
+        end
+        
+        if expanded_response['message'] != nil
+          response_params['message'] = expanded_response['message']
+        end
+        
+        if expanded_response['credit_card'] != nil
             credit_card = expanded_response['credit_card']
             response_params['cc_display'] = credit_card.display_number
             response_params['cc_exp_month'] = credit_card.month
@@ -103,11 +115,11 @@ class PaymentBridge
             response_params['cc_type'] = credit_card.brand
         end
         
-        if expanded_response.has_key?('amount')
+        if expanded_response['amount'] != nil
             response_params['amount'] = expanded_response['amount']
         end
         
-        if expanded_response.has_key?('currency_code')
+        if expanded_response['currency_code'] != nil
             response_params['currency_code'] = expanded_response['currency_code']
         end
         
@@ -132,52 +144,156 @@ class PaymentBridge
         end
     end
     
-    def process_direct_post(gateway, action, post_data, secure_data)
+    def process_direct_post(gateway, action, data, secure_data)
         #should return dict containing: response, credit_card, passthrough, amount, currency_code
-        amount = secure_data['amount']
-        currency_code = secure_data['currency_code']
-        #currency_code = secure_data['currency_code'] #TODO how does active merchant do this?
-        credit_card = ActiveMerchant::Billing::CreditCard.new(
-          :number => post_data['cc_number'],
-          :month => post_data['cc_exp_month'],
-          :year => post_data['cc_exp_year'],
-          :first_name => post_data['bill_first_name'],
-          :last_name => post_data['bill_last_name'],
-          :verification_value => post_data['cc_ccv']
-        )
-
-        options = secure_data.fetch('options', {})
-        
-        address = parse_address_from_post(post_data)
-        if address
-            options['address'] = address
+        case action
+        when "authorize"
+          return authorize(gateway, data, secure_data)
+        when "capture"
+          return capture(gateway, data, secure_data)
+        when "purchase"
+          return purchase(gateway, data, secure_data)
+        when "void"
+          return void(gateway, data, secure_data)
+        when "refund"
+          return refund(gateway, data, secure_data)
+        when "store"
+          return store(gateway, data, secure_data)
+        when "retrieve"
+          return retrieve(gateway, data, secure_data)
+        when "update"
+          return update(gateway, data, secure_data)
+        when "unstore"
+          return unstore(gateway, data, secure_data)
+        else
+          return invalid_action(gateway, action, data, secure_data)
         end
-        
-        ship_address = parse_address_from_post(post_data, prefix='ship')
-        if ship_address:
-            options['ship_address'] = ship_address
+    end
+    
+    def build_expanded_response(data, secure_data, options={})
+      passthrough_fields = secure_data.fetch('passthrough', [])
+      passthrough = {}
+      for key in passthrough_fields
+        if not key.startswith('cc_') and data.has_key?(key)
+          passthrough[key] = post_data[key]
         end
-        
-        #TODO support other actions
-        if action == "authorize":
-            response = gateway.authorize(amount, credit_card, options)
-        elsif action == "store":
-            response = gateway.store(credit_card, options)
-        end
-        
-        passthrough_fields = secure_data.fetch('passthrough', [])
-        passthrough = {}
-        for key in passthrough_fields
-            if not key.startswith('cc_') and post_data.has_key?(key)
-                passthrough[key] = post_data[key]
-            end
-        end
-        
-        return {'response' => response,
-                'credit_card' => credit_card,
-                'amount' => amount,
-                'currency_code' => currency_code,
-                'passthrough' => passthrough}
+      end
+      
+      return {'response' => options[:response],
+              'credit_card' => options[:credit_card],
+              'amount' => options[:amount],
+              'currency_code' => options[:currency_code],
+              'passthrough' => passthrough}
+    end
+    
+    def build_options(data, secure_data)
+      options = secure_data.fetch('options', {})
+      #currency_code = secure_data['currency_code']
+      
+      address = parse_address_from_post(data)
+      if address
+        options['address'] = address
+      end
+      
+      ship_address = parse_address_from_post(data, prefix='ship')
+      if ship_address:
+        options['ship_address'] = ship_address
+      end
+      return options
+    end
+    
+    def build_credit_card(data)
+      return ActiveMerchant::Billing::CreditCard.new(
+        :number => data['cc_number'],
+        :month => data['cc_exp_month'],
+        :year => data['cc_exp_year'],
+        :first_name => data['bill_first_name'],
+        :last_name => data['bill_last_name'],
+        :verification_value => data['cc_ccv']
+      )
+    end
+    
+    def invalid_action(gateway, action, data, secure_data)
+      response = build_expanded_response(data, secure_data)
+      response['message'] = "Unreognized Action"
+      return response
+    end
+    
+    def authorize(gateway, data, secure_data)
+      amount = secure_data['amount']
+      credit_card = build_credit_card(data)
+      options = build_options(data, secure_data)
+      
+      response = gateway.authorize(amount, credit_card, options)
+      return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card, :amount=>amount)
+    end
+    
+    def capture(gateway, data, secure_data)
+      amount = secure_data['amount']
+      authorization = secure_data['authorization']
+      options = build_options(data, secure_data)
+      
+      response = gateway.capture(amount, authorization, options)
+      return build_expanded_response(data, secure_data, :response=>response, :amount=>amount)
+    end
+    
+    def purchase(gateway, data, secure_data)
+      amount = secure_data['amount']
+      credit_card = build_credit_card(data)
+      options = build_options(data, secure_data)
+      
+      response = gateway.purchase(amount, credit_card, options)
+      return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card, :amount=>amount)
+    end
+    
+    def void(gateway, data, secure_data)
+      authorization = secure_data['authorization']
+      options = build_options(data, secure_data)
+      
+      response = gateway.void(authorization, options)
+      return build_expanded_response(data, secure_data, :response=>response)
+    end
+    
+    def refund(gateway, data, secure_data)
+      amount = secure_data['amount']
+      authorization = secure_data['authorization']
+      options = build_options(data, secure_data)
+      
+      respone = gateway.refund(amount, authorization, options)
+      return build_expanded_response(data, secure_data, :response=>response, :amount=>amount)
+    end
+    
+    def store(gateway, data, secure_data)
+      credit_card = build_credit_card(data)
+      options = build_options(data, secure_data)
+      
+      response = gateway.store(credit_card, options)
+      return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card)
+    end
+    
+    def retrieve(gateway, data, secure_data)
+      authorization = secure_data['authorization']
+      options = build_options(data, secure_data)
+      
+      response = gateway.retrieve(authorization, options)
+      return build_expanded_response(data, secure_data, :response=>response)
+    end
+    
+    def update(gateway, data, secure_data)
+      authorization = secure_data['authorization']
+      credit_card = build_credit_card(data)
+      options = build_options(data, secure_data)
+      
+      response = gateway.update(authorization, credit_card, options)
+      return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card)
+    end
+    
+    def unstore(gateway, data, secure_data)
+      authorization = secure_data['authorization']
+      options = build_options(data, secure_data)
+      
+      response = gateway.unstore(authorization, options)
+      return build_expanded_response(data, secure_data, :response=>response)
     end
 end
 
