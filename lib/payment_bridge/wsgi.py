@@ -47,7 +47,6 @@ class Bridge(object):
 
 class BaseDirectPostApplication(object):
     encrypted_field = 'payload'
-    protected_fields = ['currency', 'amount', 'gateway', 'action', 'passthrough']
     
     def __init__(self, redirect_to):
         self.redirect_to = redirect_to
