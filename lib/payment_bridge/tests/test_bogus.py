@@ -58,14 +58,14 @@ class TestBogusGateway(unittest.TestCase):
         self.assertFalse(response['success'], response['message'])
     
     def test_authorize_error(self):
-        secure_data = {} #no amount data
+        secure_data = {} #no data
         bill_info = self.data_source.get_all_info()
         bill_info['cc_number'] = '1'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='authorize')
         self.assertFalse(response['success'], response['message'])
     
     def test_authorize_bad_amount_error(self):
-        secure_data = {'amount':'$50'} #no amount data
+        secure_data = {'amount':'$50'} #bad data
         bill_info = self.data_source.get_all_info()
         bill_info['cc_number'] = '1'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='authorize')
@@ -87,7 +87,7 @@ class TestBogusGateway(unittest.TestCase):
         self.assertFalse(response['success'], response['message'])
     
     def test_capture_error(self):
-        secure_data = {} #no amount data
+        secure_data = {} #no data
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='capture')
         self.assertFalse(response['success'], response['message'])
     
@@ -108,10 +108,48 @@ class TestBogusGateway(unittest.TestCase):
         self.assertFalse(response['success'], response['message'])
     
     def test_purchase_error(self):
-        secure_data = {} #no amount data
+        secure_data = {} #no data
         bill_info = self.data_source.get_all_info()
         bill_info['cc_number'] = '1'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='purchase')
+        self.assertFalse(response['success'], response['message'])
+    
+    ## Void ##
+    
+    def test_void_success(self):
+        secure_data = {'authorization':'ABCDEF',}
+        response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='void')
+        self.assertTrue(response['success'], response['message'])
+    
+    def test_void_failure(self):
+        return #TODO raise skiptest
+        secure_data = {'authorization':'ABCDEF',}
+        response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='void')
+        self.assertFalse(response['success'], response['message'])
+    
+    def test_void_error(self):
+        secure_data = {} #no data
+        response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='void')
+        self.assertFalse(response['success'], response['message'])
+    
+    ## Refund ##
+    
+    def test_refund_success(self):
+        secure_data = {'amount':'100',
+                       'authorization':'ABCDEF',}
+        response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='refund')
+        self.assertTrue(response['success'], response['message'])
+    
+    def test_refund_failure(self):
+        return #TODO raise skiptest
+        secure_data = {'amount':'100',
+                       'authorization':'ABCDEF',}
+        response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='refund')
+        self.assertFalse(response['success'], response['message'])
+    
+    def test_refund_error(self):
+        secure_data = {} #no data
+        response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='refund')
         self.assertFalse(response['success'], response['message'])
 
 if __name__ == '__main__':

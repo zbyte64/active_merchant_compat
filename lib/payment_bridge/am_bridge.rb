@@ -296,7 +296,7 @@ class PaymentBridge
       options = build_options(data, secure_data)
       
       begin
-        respone = gateway.refund(amount, authorization, options)
+        response = gateway.refund(amount, authorization, options)
       rescue ActiveMerchant::Billing::Error => error
         return build_expanded_response(data, secure_data, :amount=>amount, :exception=>error)
       end
