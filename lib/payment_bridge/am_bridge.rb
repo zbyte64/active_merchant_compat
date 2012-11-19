@@ -1,84 +1,96 @@
 require "rubygems"
 require "active_merchant"
 require "json"
+require "stringio"
 
 class PaymentBridge
+    #include ActiveMerchant::Billing::Gateway::RequiresParameters
+    
     def initialize()
-        #do nothing
+      #do nothing
     end
     
     def configure_from_environ()
-        payload = ENV['PAYMENT_CONFIGURATION']
-        if payload == nil
-            configure([])
-        else
-            config = JSON.parse(payload)
-            configure(config)
-        end
+      payload = ENV['PAYMENT_CONFIGURATION']
+      if payload == nil
+        configure([])
+      else
+        config = JSON.parse(payload)
+        configure(config)
+      end
     end
     
     def configure(config)
-        @gateways = {}
-        for gateway_config in config:
-            klass = get_gateway_class(gateway_config['module'])
-            @gateways[gateway_config['name']] = klass.new(*gateway_config['params'])
-        end
+      @gateways = {}
+      for gateway_config in config:
+        klass = get_gateway_class(gateway_config['module'])
+        @gateways[gateway_config['name']] = klass.new(*gateway_config['params'])
+      end
     end
     
     def get_gateway_class(name)
-        case name
-        when "bogus"
-          return ActiveMerchant::Billing::BogusGateway
-        when "paypal"
-          return ActiveMerchant::Billing::PaypalGateway
-        else
-          return nil
-        end
+      case name
+      when "bogus"
+        return ActiveMerchant::Billing::BogusGateway
+      when "paypal"
+        return ActiveMerchant::Billing::PaypalGateway
+      else
+        return nil
+      end
     end
     
     def run()
-        # read command from standard input:
-        #TODO guard against other code printing to STDOUT
-        while cmd = STDIN.gets
-          #TODO we want to ensure we read one line at a time
-          payload = JSON.parse(cmd)
-          
-          data = payload['data']
-          secure_data = payload['secure_data'] || {}
-          action = payload['action']
-          gateway = @gateways[payload['gateway']]
-          
-          if gateway == nil
-            callback_params = {
-                'message' => "Unrecognized gateway",
-                'success' => false
-            }
-          elsif data == nil
-            callback_params = {
-                'message' => "No Data",
-                'success' => false
-            }
-          elsif secure_data == nil
-            callback_params = {
-                'message' => "No Secure Data",
-                'success' => false
-            }
-          elsif action == nil
-            callback_params = {
-                'message' => "No action",
-                'success' => false
-            }
-          else
-            expanded_response = process_direct_post(gateway, action, data, secure_data)
-            callback_params = construct_callback_params(expanded_response)
-          end
-          callback_params['gateway'] = payload['gateway']
-          callback_params['action'] = action
-          callback_params['request_id'] = payload['request_id']
-          
-          puts JSON.dump(callback_params)
-          STDOUT.flush
+      setup_data_channel()
+      while payload = receive_data
+        data = payload['data']
+        secure_data = payload['secure_data'] || {}
+        action = payload['action']
+        gateway = @gateways[payload['gateway']]
+        
+        if gateway == nil
+          callback_params = {
+              'message' => "Unrecognized gateway",
+              'success' => false
+          }
+        elsif data == nil
+          callback_params = {
+              'message' => "No Data",
+              'success' => false
+          }
+        elsif secure_data == nil
+          callback_params = {
+              'message' => "No Secure Data",
+              'success' => false
+          }
+        elsif action == nil
+          callback_params = {
+              'message' => "No action",
+              'success' => false
+          }
+        else
+          expanded_response = process_direct_post(gateway, action, data, secure_data)
+          callback_params = construct_callback_params(expanded_response)
         end
+        callback_params['gateway'] = payload['gateway']
+        callback_params['action'] = action
+        callback_params['request_id'] = payload['request_id']
+        
+        send_data(callback_params)
+      end
+    end
+    
+    def setup_data_channel()
+      sio = StringIO.new
+      @data_out, $stdout = $stdout, sio
+    end
+    
+    def receive_data()
+      JSON.parse(STDIN.gets())
+    end
+    
+    def send_data(data)
+      @data_out.puts(JSON.dump(data))
+      @data_out.flush
     end
     
     def construct_callback_params(expanded_response)
@@ -87,14 +99,10 @@ class PaymentBridge
         response = expanded_response['response']
         if response != nil
           response_params = response_params.merge({
-            #'action': action,
-            #'gateway': decrypted_data['gateway'],
             'success' => response.success?(),
             'test' => response.test?(),
             'fraud_review' => response.fraud_review?(),
             'message' => response.message,
-            #'result' => response.result,
-            #'card_store_id': response.card_store_id,
             'authorization' => response.authorization #this may also be your card store id
             #'avs' => response.avs_result,
             #'cvv' => response.cvv_result,
@@ -105,6 +113,8 @@ class PaymentBridge
         
         if expanded_response['message'] != nil
           response_params['message'] = expanded_response['message']
+        elsif expanded_response['exception'] != nil
+          response_params['message'] = expanded_response['exception']
         end
         
         if expanded_response['credit_card'] != nil
@@ -146,27 +156,31 @@ class PaymentBridge
     
     def process_direct_post(gateway, action, data, secure_data)
         #should return dict containing: response, credit_card, passthrough, amount, currency_code
-        case action
-        when "authorize"
-          return authorize(gateway, data, secure_data)
-        when "capture"
-          return capture(gateway, data, secure_data)
-        when "purchase"
-          return purchase(gateway, data, secure_data)
-        when "void"
-          return void(gateway, data, secure_data)
-        when "refund"
-          return refund(gateway, data, secure_data)
-        when "store"
-          return store(gateway, data, secure_data)
-        when "retrieve"
-          return retrieve(gateway, data, secure_data)
-        when "update"
-          return update(gateway, data, secure_data)
-        when "unstore"
-          return unstore(gateway, data, secure_data)
-        else
-          return invalid_action(gateway, action, data, secure_data)
+        begin
+          case action
+          when "authorize"
+            return authorize(gateway, data, secure_data)
+          when "capture"
+            return capture(gateway, data, secure_data)
+          when "purchase"
+            return purchase(gateway, data, secure_data)
+          when "void"
+            return void(gateway, data, secure_data)
+          when "refund"
+            return refund(gateway, data, secure_data)
+          when "store"
+            return store(gateway, data, secure_data)
+          when "retrieve"
+            return retrieve(gateway, data, secure_data)
+          when "update"
+            return update(gateway, data, secure_data)
+          when "unstore"
+            return unstore(gateway, data, secure_data)
+          else
+            return invalid_action(gateway, action, data, secure_data)
+          end
+        rescue ArgumentError => error
+          return build_expanded_response(data, secure_data, :exception=>error)
         end
     end
     
@@ -183,6 +197,7 @@ class PaymentBridge
               'credit_card' => options[:credit_card],
               'amount' => options[:amount],
               'currency_code' => options[:currency_code],
+              'exception' => options[:exception],
               'passthrough' => passthrough}
     end
     
@@ -220,46 +235,71 @@ class PaymentBridge
     end
     
     def authorize(gateway, data, secure_data)
-      amount = secure_data['amount']
+      requires!(secure_data, 'amount')
+      amount = Integer(secure_data['amount'])
       credit_card = build_credit_card(data)
       options = build_options(data, secure_data)
       
-      response = gateway.authorize(amount, credit_card, options)
+      begin
+        response = gateway.authorize(amount, credit_card, options)
+      rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :amount=>amount, :exception=>error)
+      end
       return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card, :amount=>amount)
     end
     
     def capture(gateway, data, secure_data)
-      amount = secure_data['amount']
+      requires!(secure_data, 'amount', 'authorization')
+      amount = Integer(secure_data['amount'])
       authorization = secure_data['authorization']
       options = build_options(data, secure_data)
       
-      response = gateway.capture(amount, authorization, options)
+      begin
+        response = gateway.capture(amount, authorization, options)
+      rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :amount=>amount, :exception=>error)
+      end
       return build_expanded_response(data, secure_data, :response=>response, :amount=>amount)
     end
     
     def purchase(gateway, data, secure_data)
-      amount = secure_data['amount']
+      requires!(secure_data, 'amount')
+      amount = Integer(secure_data['amount'])
       credit_card = build_credit_card(data)
       options = build_options(data, secure_data)
       
-      response = gateway.purchase(amount, credit_card, options)
+      begin
+        response = gateway.purchase(amount, credit_card, options)
+      rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :amount=>amount, :exception=>error)
+      end
       return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card, :amount=>amount)
     end
     
     def void(gateway, data, secure_data)
+      requires!(secure_data, 'authorization')
       authorization = secure_data['authorization']
       options = build_options(data, secure_data)
       
-      response = gateway.void(authorization, options)
+      begin
+        response = gateway.void(authorization, options)
+      rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :exception=>error)
+      end
       return build_expanded_response(data, secure_data, :response=>response)
     end
     
     def refund(gateway, data, secure_data)
-      amount = secure_data['amount']
+      requires!(secure_data, 'amount', 'authorization')
+      amount = Integer(secure_data['amount'])
       authorization = secure_data['authorization']
       options = build_options(data, secure_data)
       
-      respone = gateway.refund(amount, authorization, options)
+      begin
+        respone = gateway.refund(amount, authorization, options)
+      rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :amount=>amount, :exception=>error)
+      end
       return build_expanded_response(data, secure_data, :response=>response, :amount=>amount)
     end
     
@@ -267,33 +307,65 @@ class PaymentBridge
       credit_card = build_credit_card(data)
       options = build_options(data, secure_data)
       
-      response = gateway.store(credit_card, options)
+      begin
+        response = gateway.store(credit_card, options)
+      rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :exception=>error)
+      end
       return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card)
     end
     
     def retrieve(gateway, data, secure_data)
+      requires!(secure_data, 'authorization')
       authorization = secure_data['authorization']
       options = build_options(data, secure_data)
       
-      response = gateway.retrieve(authorization, options)
+      begin
+        response = gateway.retrieve(authorization, options)
+      rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :exception=>error)
+      end
       return build_expanded_response(data, secure_data, :response=>response)
     end
     
     def update(gateway, data, secure_data)
+      requires!(secure_data, 'authorization')
       authorization = secure_data['authorization']
       credit_card = build_credit_card(data)
       options = build_options(data, secure_data)
       
-      response = gateway.update(authorization, credit_card, options)
+      begin
+        response = gateway.update(authorization, credit_card, options)
+      rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :exception=>error)
+      end
       return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card)
     end
     
     def unstore(gateway, data, secure_data)
+      requires!(secure_data, 'authorization')
       authorization = secure_data['authorization']
       options = build_options(data, secure_data)
       
-      response = gateway.unstore(authorization, options)
+      begin
+        response = gateway.unstore(authorization, options)
+      rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :exception=>error)
+      end
       return build_expanded_response(data, secure_data, :response=>response)
+    end
+    
+    def requires!(hash, *params)
+      params.each do |param|
+        if param.is_a?(Array)
+          raise ArgumentError.new("Missing required parameter: #{param.first}") unless hash.has_key?(param.first)
+ 
+          valid_options = param[1..-1]
+          raise ArgumentError.new("Parameter: #{param.first} must be one of #{valid_options.to_sentence(:connector => 'or')}") unless valid_options.include?(hash[param.first])
+        else
+          raise ArgumentError.new("Missing required parameter: #{param}") unless hash.has_key?(param)
+        end
+      end
     end
 end
 

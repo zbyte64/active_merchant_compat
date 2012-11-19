@@ -86,9 +86,11 @@ class BaseDirectPostApplication(object):
         decrypted_data = self.decrypt_data(encrypted_data)
         gateway_key = decrypted_data['gateway']
         action = decrypted_data['action']
+        redirect_to = decrypted_data.get('redirect', self.redirect_to)
         
         response_params = self.call_bridge(data=caller_data, secure_data=decrypted_data, gateway=gateway_key, action=action)
-        return {self.encrypted_field: self.encrypt_data(response_params)}
+        return {'url_params':{self.encrypted_field: self.encrypt_data(response_params)},
+                'redirect':redirect_to,}
     
     def render_bad_request(self, environ, start_response, response_body):
         status = '405 METHOD NOT ALLOWED'
@@ -110,7 +112,7 @@ class BaseDirectPostApplication(object):
             if not callback:
                 return self.render_bad_request(environ, start_response, "Invalid JSONP request; Please provide 'callback'.")
             
-            params = self.process_direct_post(caller_data)
+            params = self.process_direct_post(caller_data)['url_params']
             
             response_body = JSONP_RESPONSE % {'callback':callback, 'json_data': json.dumps(params)}
             
@@ -129,7 +131,8 @@ class BaseDirectPostApplication(object):
             
             params = self.process_direct_post(caller_data)
             
-            response_body = '%s?%s' % (self.redirect_to, urlencode(params))
+            
+            response_body = '%s?%s' % (params['redirect'], urlencode(params['url_params']))
             
             status = '303 SEE OTHER'
             content_type = 'text/html'
