@@ -19,6 +19,8 @@ class TestBogusGateway(unittest.TestCase):
         self.application = BogusTestDirectPostApplication(redirect_to='http://localhost:8080/direct-post/')
         self.data_source = PaymentData()
     
+    ## Store ##
+    
     def test_store_error(self):
         secure_data = {}
         bill_info = self.data_source.get_all_info() #will fail because we don't have a bogus approved cc
@@ -38,6 +40,8 @@ class TestBogusGateway(unittest.TestCase):
         bill_info['cc_number'] = '2'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='store')
         self.assertFalse(response['success'], response['message'])
+    
+    ## Authorize ##
     
     def test_authorize_success(self):
         secure_data = {'amount':'100'}
@@ -59,6 +63,57 @@ class TestBogusGateway(unittest.TestCase):
         bill_info['cc_number'] = '1'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='authorize')
         self.assertFalse(response['success'], response['message'])
+    
+    def test_authorize_bad_amount_error(self):
+        secure_data = {'amount':'$50'} #no amount data
+        bill_info = self.data_source.get_all_info()
+        bill_info['cc_number'] = '1'
+        response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='authorize')
+        self.assertFalse(response['success'], response['message'])
+    
+    ## Capture ##
+    
+    def test_capture_success(self):
+        secure_data = {'amount':'100',
+                       'authorization':'ABCDEF',}
+        response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='capture')
+        self.assertTrue(response['success'], response['message'])
+    
+    def test_capture_failure(self):
+        return #TODO raise skiptest
+        secure_data = {'amount':'100',
+                       'authorization':'ABCDEF',}
+        response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='capture')
+        self.assertFalse(response['success'], response['message'])
+    
+    def test_capture_error(self):
+        secure_data = {} #no amount data
+        response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='capture')
+        self.assertFalse(response['success'], response['message'])
+    
+    ## Purchase ##
+    
+    def test_purchase_success(self):
+        secure_data = {'amount':'100'}
+        bill_info = self.data_source.get_all_info()
+        bill_info['cc_number'] = '1'
+        response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='purchase')
+        self.assertTrue(response['success'], response['message'])
+    
+    def test_purchase_failure(self):
+        secure_data = {'amount':'100'}
+        bill_info = self.data_source.get_all_info()
+        bill_info['cc_number'] = '2'
+        response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='purchase')
+        self.assertFalse(response['success'], response['message'])
+    
+    def test_purchase_error(self):
+        secure_data = {} #no amount data
+        bill_info = self.data_source.get_all_info()
+        bill_info['cc_number'] = '1'
+        response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='purchase')
+        self.assertFalse(response['success'], response['message'])
 
 if __name__ == '__main__':
     unittest.main()
+
