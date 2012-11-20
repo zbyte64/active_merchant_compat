@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-import sys
-sys.path.append('/home/jason/Repos/active_merchant_compat/lib')
-
 import unittest
 
 from payment_bridge.tests.common import BaseTestDirectPostApplication, PaymentData
