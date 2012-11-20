@@ -1,0 +1,2 @@
+include payment_bridge/am_bridge.rb
+recursive-exclude lib *

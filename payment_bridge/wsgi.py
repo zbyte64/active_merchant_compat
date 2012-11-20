@@ -4,6 +4,7 @@ from cgi import parse_qs
 from urllib import urlencode
 import json
 import random
+import os
 
 
 random.seed()
@@ -16,8 +17,10 @@ def flatten_dictionary(dictionary):
         new_dict[key] = values[0]
     return new_dict
 
+SCRIPT_PATH = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'am_bridge.rb')
+
 class Bridge(object):
-    def __init__(self, exec_path='ruby', script_path='am_bridge.rb', environ=None):
+    def __init__(self, exec_path='ruby', script_path=SCRIPT_PATH, environ=None):
         self.lock = Lock()
         self.slave = Popen([exec_path, script_path], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=environ)
     
