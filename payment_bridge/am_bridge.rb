@@ -52,6 +52,12 @@ class PaymentBridge
               'message' => "Unrecognized gateway",
               'success' => false
           }
+        elsif action == nil
+          callback_params = {
+              'message' => "No action",
+              'success' => false,
+              'supported_actions' => get_supported_actions(gateway)
+          }
         elsif data == nil
           callback_params = {
               'message' => "No Data",
@@ -60,11 +66,6 @@ class PaymentBridge
         elsif secure_data == nil
           callback_params = {
               'message' => "No Secure Data",
-              'success' => false
-          }
-        elsif action == nil
-          callback_params = {
-              'message' => "No action",
               'success' => false
           }
         else
@@ -227,6 +228,16 @@ class PaymentBridge
         :last_name => data['bill_last_name'],
         :verification_value => data['cc_ccv']
       )
+    end
+    
+    def get_supported_actions(gateway)
+      actions_seen = []
+      for action in ["authorize", "capture", "purchase", "void", "refund", "store", "retrieve", "update", "unstore"]
+        if gateway.respond_to?(action)
+          actions_seen.push(action)
+        end
+      end
+      return actions_seen
     end
     
     def invalid_action(gateway, action, data, secure_data)
