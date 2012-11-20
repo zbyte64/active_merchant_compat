@@ -6,7 +6,7 @@ from payment_bridge.tests.common import BaseGatewayTestCase
 
 class TestBogusGateway(BaseGatewayTestCase):
     gateway = {
-        'module':'bogus',
+        'module':'authorize_net_cim_compat',
         'name':'test',
         'params': {}
     }

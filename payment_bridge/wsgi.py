@@ -48,6 +48,13 @@ class Bridge(object):
         assert params['request_id'] == kwargs['request_id']
         
         return params
+    
+    def close(self):
+        #self.slave.stdin.close()
+        outdata, errdata = self.slave.communicate()
+        print 'Shutdown bridge result:', outdata, errdata
+        #self.slave.terminate()
+        #self.slave.kill()
 
 class BaseDirectPostApplication(object):
     encrypted_field = 'payload'
@@ -59,6 +66,9 @@ class BaseDirectPostApplication(object):
     def construct_bridge(self):
         config = self.load_gateways_config()
         return Bridge(environ={'PAYMENT_CONFIGURATION':json.dumps(config)})
+    
+    def shutdown(self):
+        self.bridge.close()
     
     def load_gateways_config(self):
         """

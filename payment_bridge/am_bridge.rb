@@ -24,12 +24,20 @@ class PaymentBridge
       @gateways = {}
       for gateway_config in config
         klass = get_gateway_class(gateway_config['module'])
-        @gateways[gateway_config['name']] = klass.new(*gateway_config['params'])
+        if klass == nil
+          @gateways[gateway_config['name']] = klass
+        else
+          @gateways[gateway_config['name']] = klass.new(*gateway_config['params'])
+        end
       end
     end
     
     def get_gateway_class(name)
-      return ActiveMerchant::Billing::Base.gateway(name)
+      begin
+        return ActiveMerchant::Billing::Base.gateway(name)
+      rescue NameError => error
+        return nil
+      end
     end
     
     def run()
@@ -79,7 +87,11 @@ class PaymentBridge
     end
     
     def receive_data()
-      JSON.parse(STDIN.gets())
+      input = STDIN.gets()
+      if input == nil
+        return nil
+      end
+      return JSON.parse(input)
     end
     
     def send_data(data)

@@ -1,11 +1,14 @@
 import base64
 import json
+import unittest
 
 from payment_bridge.wsgi import BaseDirectPostApplication
 
 
 class BaseTestDirectPostApplication(BaseDirectPostApplication):
-    gateway = {} #subclasses implement this
+    def __init__(self, **kwargs):
+        self.gateway = kwargs.pop('gateway')
+        super(BaseTestDirectPostApplication, self).__init__(**kwargs)
     
     def load_gateways_config(self):
         return [self.gateway]
@@ -74,4 +77,27 @@ class PaymentData(object):
         info = self.get_bill_info()
         info.update(self.ship_address)
         return info
+
+class BaseGatewayTestCase(unittest.TestCase):
+    gateway = {}
+    
+    def setUp(self):
+        self.application = BaseTestDirectPostApplication(redirect_to='http://localhost:8080/direct-post/', gateway=self.gateway)
+        self.data_source = PaymentData()
+    
+    def tearDown(self):
+        self.application.shutdown()
+    
+    def get_supported_actions(self):
+        if not hasattr(self, '_supported_actions'):
+            #calling a gateway with action = None is a request for the supported actions
+            response = self.application.call_bridge(data=None, secure_data=None, gateway='test', action=None)
+            if response['message'] == 'Unrecognized gateway':
+                self.skipTest(response['message'])
+            self._supported_actions = response['supported_actions']
+        return self._supported_actions
+    
+    def checkGatewaySupport(self, action):
+        if not action in self.get_supported_actions():
+            self.skipTest("Unsupported action: %s" % action)
 
