@@ -111,6 +111,14 @@ class PaymentBridge
           response_params['message'] = expanded_response['exception']
         end
         
+        if expanded_response['bill_address'] != nil
+          add_address_with_prefix(response_params, expanded_response['bill_address'], 'bill')
+        end
+        
+        if expanded_response['ship_address'] != nil
+          add_address_with_prefix(response_params, expanded_response['ship_address'], 'ship')
+        end
+        
         if expanded_response['credit_card'] != nil
             credit_card = expanded_response['credit_card']
             response_params['cc_display'] = credit_card.display_number
@@ -128,6 +136,12 @@ class PaymentBridge
         end
         
         return response_params
+    end
+    
+    def add_address_with_prefix(response, address, prefix)
+      address.each do |key, value|
+        response[prefix+"_"+key] = value
+      end
     end
     
     def parse_address_from_post(post_data, prefix='bill')
@@ -178,7 +192,7 @@ class PaymentBridge
         end
     end
     
-    def build_expanded_response(data, secure_data, options={})
+    def build_expanded_response(data, secure_data, params={})
       passthrough_fields = secure_data.fetch('passthrough', [])
       passthrough = {}
       for key in passthrough_fields
@@ -187,13 +201,26 @@ class PaymentBridge
         end
       end
       
-      return {'response' => options[:response],
-              'credit_card' => options[:credit_card],
-              'amount' => options[:amount],
-              'currency_code' => options[:currency_code],
-              'exception' => options[:exception],
+      bill_address = nil
+      ship_address = nil
+      
+      if params[:options] and params[:options]['address']
+        bill_address = params[:options]['address']
+      end
+      
+      if params[:options] and params[:options]['ship_address']
+        ship_address = params[:options]['ship_address']
+      end
+      
+      return {'response' => params[:response],
+              'credit_card' => params[:credit_card],
+              'amount' => params[:amount],
+              'currency_code' => params[:currency_code],
+              'exception' => params[:exception],
               'passthrough' => passthrough,
-              'message' => options[:message]}
+              'message' => params[:message],
+              'bill_address' => bill_address,
+              'ship_address' => ship_address}
     end
     
     def build_options(data, secure_data)
@@ -248,11 +275,11 @@ class PaymentBridge
       begin
         response = gateway.authorize(amount, credit_card, options)
       rescue ActiveMerchant::Billing::Error => error
-        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :amount=>amount, :exception=>error)
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :amount=>amount, :exception=>error)
       rescue NoMethodError => error
-        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :amount=>amount, :exception=>error, :message=>"Unsupported Action")
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :amount=>amount, :exception=>error, :message=>"Unsupported Action")
       end
-      return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card, :amount=>amount)
+      return build_expanded_response(data, secure_data, :response=>response, :options=>options, :credit_card=>credit_card, :amount=>amount)
     end
     
     def capture(gateway, data, secure_data)
@@ -264,11 +291,11 @@ class PaymentBridge
       begin
         response = gateway.capture(amount, authorization, options)
       rescue ActiveMerchant::Billing::Error => error
-        return build_expanded_response(data, secure_data, :amount=>amount, :exception=>error)
+        return build_expanded_response(data, secure_data, :options=>options, :amount=>amount, :exception=>error)
       rescue NoMethodError => error
-        return build_expanded_response(data, secure_data, :amount=>amount, :exception=>error, :message=>"Unsupported Action")
+        return build_expanded_response(data, secure_data, :options=>options, :amount=>amount, :exception=>error, :message=>"Unsupported Action")
       end
-      return build_expanded_response(data, secure_data, :response=>response, :amount=>amount)
+      return build_expanded_response(data, secure_data, :response=>response, :options=>options, :amount=>amount)
     end
     
     def purchase(gateway, data, secure_data)
@@ -280,11 +307,11 @@ class PaymentBridge
       begin
         response = gateway.purchase(amount, credit_card, options)
       rescue ActiveMerchant::Billing::Error => error
-        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :amount=>amount, :exception=>error)
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :amount=>amount, :exception=>error)
       rescue NoMethodError => error
-        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :amount=>amount, :exception=>error, :message=>"Unsupported Action")
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :amount=>amount, :exception=>error, :message=>"Unsupported Action")
       end
-      return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card, :amount=>amount)
+      return build_expanded_response(data, secure_data, :response=>response, :options=>options, :credit_card=>credit_card, :amount=>amount)
     end
     
     def void(gateway, data, secure_data)
@@ -295,11 +322,11 @@ class PaymentBridge
       begin
         response = gateway.void(authorization, options)
       rescue ActiveMerchant::Billing::Error => error
-        return build_expanded_response(data, secure_data, :exception=>error)
+        return build_expanded_response(data, secure_data, :options=>options, :exception=>error)
       rescue NoMethodError => error
-        return build_expanded_response(data, secure_data, :exception=>error, :message=>"Unsupported Action")
+        return build_expanded_response(data, secure_data, :options=>options, :exception=>error, :message=>"Unsupported Action")
       end
-      return build_expanded_response(data, secure_data, :response=>response)
+      return build_expanded_response(data, secure_data, :response=>response, :options=>options)
     end
     
     def refund(gateway, data, secure_data)
@@ -311,11 +338,11 @@ class PaymentBridge
       begin
         response = gateway.refund(amount, authorization, options)
       rescue ActiveMerchant::Billing::Error => error
-        return build_expanded_response(data, secure_data, :amount=>amount, :exception=>error)
+        return build_expanded_response(data, secure_data, :options=>options, :amount=>amount, :exception=>error)
       rescue NoMethodError => error
-        return build_expanded_response(data, secure_data, :amount=>amount, :exception=>error, :message=>"Unsupported Action")
+        return build_expanded_response(data, secure_data, :options=>options, :amount=>amount, :exception=>error, :message=>"Unsupported Action")
       end
-      return build_expanded_response(data, secure_data, :response=>response, :amount=>amount)
+      return build_expanded_response(data, secure_data, :response=>response, :options=>options, :amount=>amount)
     end
     
     def store(gateway, data, secure_data)
@@ -325,11 +352,11 @@ class PaymentBridge
       begin
         response = gateway.store(credit_card, options)
       rescue ActiveMerchant::Billing::Error => error
-        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :exception=>error)
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :exception=>error)
       rescue NoMethodError => error
-        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :exception=>error, :message=>"Unsupported Action")
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :exception=>error, :message=>"Unsupported Action")
       end
-      return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card)
+      return build_expanded_response(data, secure_data, :response=>response, :options=>options, :credit_card=>credit_card)
     end
     
     def retrieve(gateway, data, secure_data)
@@ -340,11 +367,11 @@ class PaymentBridge
       begin
         response = gateway.retrieve(authorization, options)
       rescue ActiveMerchant::Billing::Error => error
-        return build_expanded_response(data, secure_data, :exception=>error)
+        return build_expanded_response(data, secure_data, :options=>options, :exception=>error)
       rescue NoMethodError => error
-        return build_expanded_response(data, secure_data, :exception=>error, :message=>"Unsupported Action")
+        return build_expanded_response(data, secure_data, :options=>options, :exception=>error, :message=>"Unsupported Action")
       end
-      return build_expanded_response(data, secure_data, :response=>response)
+      return build_expanded_response(data, secure_data, :response=>response, :options=>options)
     end
     
     def update(gateway, data, secure_data)
@@ -356,11 +383,11 @@ class PaymentBridge
       begin
         response = gateway.update(authorization, credit_card, options)
       rescue ActiveMerchant::Billing::Error => error
-        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :exception=>error)
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :exception=>error)
       rescue NoMethodError => error
-        return build_expanded_response(data, secure_data, :credit_card=>credit_card, :exception=>error, :message=>"Unsupported Action")
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :exception=>error, :message=>"Unsupported Action")
       end
-      return build_expanded_response(data, secure_data, :response=>response, :credit_card=>credit_card)
+      return build_expanded_response(data, secure_data, :response=>response, :options=>options, :credit_card=>credit_card)
     end
     
     def unstore(gateway, data, secure_data)
@@ -371,11 +398,11 @@ class PaymentBridge
       begin
         response = gateway.unstore(authorization, options)
       rescue ActiveMerchant::Billing::Error => error
-        return build_expanded_response(data, secure_data, :exception=>error)
+        return build_expanded_response(data, secure_data, :options=>options, :exception=>error)
       rescue NoMethodError => error
-        return build_expanded_response(data, secure_data, :exception=>error, :message=>"Unsupported Action")
+        return build_expanded_response(data, secure_data, :options=>options, :exception=>error, :message=>"Unsupported Action")
       end
-      return build_expanded_response(data, secure_data, :response=>response)
+      return build_expanded_response(data, secure_data, :response=>response, :options=>options)
     end
     
     def requires!(hash, *params)

@@ -74,10 +74,11 @@ class TestBogusGateway(unittest.TestCase):
         secure_data = {'amount':'100'}
         bill_info = self.data_source.get_all_info()
         bill_info['cc_number'] = '1'
-        bill_info['bill_first_name'] = '안녕하'
-        bill_info['bill_last_name'] = '세요'
+        bill_info['bill_first_name'] = u'안녕하'
+        bill_info['bill_last_name'] = u'세요'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='authorize')
         self.assertTrue(response['success'], response['message'])
+        self.assertEqual(response['bill_first_name'], bill_info['bill_first_name'])
     
     ## Capture ##
     
