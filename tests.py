@@ -22,7 +22,7 @@ class TestSuite(unittest.TestSuite):
         for module, klass in [('payment_bridge.tests.test_bogus', 'TestBogusGateway')]:
             try:
                 _temp = __import__(module, globals(), locals(), [klass])
-                tests.append(getattr(_temp, klass))
+                tests.append(getattr(_temp, klass)())
             except ImportError, e:
                 log.error("Import Error on %s: %s" % (module, e))
         return tests

@@ -18,9 +18,10 @@ def flatten_dictionary(dictionary):
     return new_dict
 
 SCRIPT_PATH = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'am_bridge.rb')
+RUBY_PATH = 'ruby1.9.1' #specific to ubuntu
 
 class Bridge(object):
-    def __init__(self, exec_path='ruby', script_path=SCRIPT_PATH, environ=None):
+    def __init__(self, exec_path=RUBY_PATH, script_path=SCRIPT_PATH, environ=None):
         self.lock = Lock()
         self.slave = Popen([exec_path, script_path], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=environ)
     

@@ -22,7 +22,7 @@ class PaymentBridge
     
     def configure(config)
       @gateways = {}
-      for gateway_config in config:
+      for gateway_config in config
         klass = get_gateway_class(gateway_config['module'])
         @gateways[gateway_config['name']] = klass.new(*gateway_config['params'])
       end
@@ -212,7 +212,7 @@ class PaymentBridge
       end
       
       ship_address = parse_address_from_post(data, prefix='ship')
-      if ship_address:
+      if ship_address
         options['ship_address'] = ship_address
       end
       return options

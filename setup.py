@@ -27,6 +27,9 @@ setup(name='payment_bridge',
       url='http://github.com/zbyte64/active_merchant_compat',
       license='New BSD License',
       packages=find_packages(exclude=['lib']),
-      test_suite='tests.TestSuite',
+      test_suite = 'nose.collector',
       include_package_data = True,
+      tests_require=(
+        'nose',
+      )
       )
