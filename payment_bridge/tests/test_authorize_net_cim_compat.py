@@ -8,7 +8,11 @@ class TestBogusGateway(BaseGatewayTestCase):
     gateway = {
         'module':'authorize_net_cim_compat',
         'name':'test',
-        'params': {}
+        'params': {
+            'login':'login',
+            'password':'password',
+            'test':True,
+        }
     }
     
     ## Authorize ##

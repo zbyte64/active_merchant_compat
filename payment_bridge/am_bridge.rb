@@ -28,7 +28,10 @@ class PaymentBridge
         if klass == nil
           @gateways[gateway_config['name']] = klass
         else
-          @gateways[gateway_config['name']] = klass.new(*gateway_config['params'])
+          #convert string params into symbol params
+          params = gateway_config['params']
+          params = params.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
+          @gateways[gateway_config['name']] = klass.new(params)
         end
       end
     end
