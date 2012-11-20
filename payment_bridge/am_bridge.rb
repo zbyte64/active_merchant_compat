@@ -1,5 +1,6 @@
 require "rubygems"
 require "active_merchant"
+require 'active_merchant_compat/billing'
 require "json"
 require "stringio"
 
