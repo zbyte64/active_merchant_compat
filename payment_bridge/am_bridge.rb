@@ -29,14 +29,7 @@ class PaymentBridge
     end
     
     def get_gateway_class(name)
-      case name
-      when "bogus"
-        return ActiveMerchant::Billing::BogusGateway
-      when "paypal"
-        return ActiveMerchant::Billing::PaypalGateway
-      else
-        return nil
-      end
+      return ActiveMerchant::Billing::Base.gateway(name)
     end
     
     def run()

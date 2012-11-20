@@ -47,6 +47,7 @@ class TestBogusGateway(unittest.TestCase):
         self.assertFalse(response['success'], response['message'])
     
     def test_authorize_error(self):
+        self.checkGatewaySupport('authorize')
         secure_data = {} #no data
         bill_info = self.data_source.get_all_info()
         bill_info['cc_number'] = '1'
