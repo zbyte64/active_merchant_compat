@@ -79,20 +79,20 @@ module ActiveMerchant #:nodoc:
 
       # Updates a customer subscription/profile
       def update(reference, creditcard, options = {})
-        _, _, customer_ref_num = split_authorization(authorization)
+        _, _, customer_ref_num = split_authorization(reference)
         options[:customer_ref_num] = customer_ref_num
         update_customer_profile(creditcard, options)
       end
 
       # Removes a customer subscription/profile
       def unstore(reference, options = {})
-        _, _, customer_ref_num = split_authorization(authorization)
+        _, _, customer_ref_num = split_authorization(reference)
         delete_customer_profile(customer_ref_num)
       end
 
       # Retrieves a customer subscription/profile
       def retrieve(reference, options = {})
-        _, _, customer_ref_num = split_authorization(authorization)
+        _, _, customer_ref_num = split_authorization(reference)
         retrieve_customer_profile(customer_ref_num)
       end
 
@@ -117,23 +117,23 @@ module ActiveMerchant #:nodoc:
         end
       end
 
-      def commit(order, message_type)
+      def commit(order, message_type=nil)
         headers = POST_HEADERS.merge("Content-length" => order.size.to_s)
         request = lambda{|url| parse(ssl_post(url, order, headers))}
 
         # Failover URL will be attempted in the event of a connection error
-        begin
-          response = request.call(remote_url)
+        response = begin
+          request.call(remote_url)
         rescue ConnectionError
-          response = request.call(remote_url(:secondary))
+          request.call(remote_url(:secondary))
         end
         
         #TODO validate this
         #we want the string to be transaction, order id, customer number
-        if [:add_customer_profile, :update_customer_profile, :retrieve_customer_profile, :delete_customer_profile].index(message_type) != nil
-          authorization = authorization_string("", response[:order_id], response[:tx_ref_num])
+        authorization = if [:add_customer_profile, :update_customer_profile, :retrieve_customer_profile, :delete_customer_profile].index(message_type) != nil
+          authorization_string("", response[:order_id], response[:tx_ref_num])
         else
-          authorization = authorization_string(response[:tx_ref_num], response[:order_id], "")
+          authorization_string(response[:tx_ref_num], response[:order_id], "")
         end
 
         Response.new(success?(response, message_type), message_from(response), response,

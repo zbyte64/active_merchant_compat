@@ -245,6 +245,7 @@ class PaymentBridge
     
     def build_options(data, secure_data)
       options = secure_data.fetch('options', {})
+      options = secure_data.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
       #currency_code = secure_data['currency_code']
       
       address = parse_address_from_post(data)
@@ -287,15 +288,47 @@ class PaymentBridge
       return response
     end
     
+    def get_method_params(method, params)
+      in_params = []
+      
+      for required, symbol in method.parameters
+        in_params.push(params[symbol])
+      end
+      
+      return in_params
+    end
+    
     def authorize(gateway, data, secure_data)
       requires!(secure_data, 'amount')
       amount = Integer(secure_data['amount'])
       credit_card = build_credit_card(data)
       options = build_options(data, secure_data)
       
+      master_params = {
+        :money=>amount,
+        :credit_card=>credit_card,
+        :creditcard=>credit_card,
+        :credit_card_or_reference=>credit_card,
+        :creditcard_or_reference=>credit_card,
+        :creditcard_or_card_id=>credit_card,
+        :creditcard_or_billing_id=>credit_card,
+        :authorization_or_credit_card=>credit_card,
+        :credit_card_or_vault_id=>credit_card,
+        :creditcard_or_stored_id=>credit_card,
+        :source=>credit_card,
+        :payment_object=>credit_card,
+        :payment_source=>credit_card,
+        :payment_method=>credit_card,
+        :card_or_auth=>credit_card,
+        :options=>options
+      }
+      in_params = get_method_params(gateway.method(:authorize), master_params)
+      
       begin
-        response = gateway.authorize(amount, credit_card, options)
+        response = gateway.authorize(*in_params)
       rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :amount=>amount, :exception=>error)
+      rescue ActiveMerchant::ResponseError => error
         return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :amount=>amount, :exception=>error)
       end
       return build_expanded_response(data, secure_data, :response=>response, :options=>options, :credit_card=>credit_card, :amount=>amount)
@@ -307,9 +340,20 @@ class PaymentBridge
       authorization = secure_data['authorization']
       options = build_options(data, secure_data)
       
+      master_params = {
+        :money=>amount,
+        :authorization=>authorization,
+        :identification=>authorization,
+        :reference=>authorization,
+        :options=>options
+      }
+      in_params = get_method_params(gateway.method(:capture), master_params)
+      
       begin
-        response = gateway.capture(amount, authorization, options)
+        response = gateway.capture(*in_params)
       rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :options=>options, :amount=>amount, :exception=>error)
+      rescue ActiveMerchant::ResponseError => error
         return build_expanded_response(data, secure_data, :options=>options, :amount=>amount, :exception=>error)
       end
       return build_expanded_response(data, secure_data, :response=>response, :options=>options, :amount=>amount)
@@ -321,9 +365,31 @@ class PaymentBridge
       credit_card = build_credit_card(data)
       options = build_options(data, secure_data)
       
+      master_params = {
+        :money=>amount,
+        :credit_card=>credit_card,
+        :creditcard=>credit_card,
+        :credit_card_or_reference=>credit_card,
+        :creditcard_or_reference=>credit_card,
+        :creditcard_or_card_id=>credit_card,
+        :creditcard_or_billing_id=>credit_card,
+        :authorization_or_credit_card=>credit_card,
+        :credit_card_or_vault_id=>credit_card,
+        :creditcard_or_stored_id=>credit_card,
+        :source=>credit_card,
+        :payment_object=>credit_card,
+        :payment_source=>credit_card,
+        :payment_method=>credit_card,
+        :card_or_auth=>credit_card,
+        :options=>options
+      }
+      in_params = get_method_params(gateway.method(:purchase), master_params)
+      
       begin
-        response = gateway.purchase(amount, credit_card, options)
+        response = gateway.purchase(*in_params)
       rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :amount=>amount, :exception=>error)
+      rescue ActiveMerchant::ResponseError => error
         return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :amount=>amount, :exception=>error)
       end
       return build_expanded_response(data, secure_data, :response=>response, :options=>options, :credit_card=>credit_card, :amount=>amount)
@@ -332,14 +398,27 @@ class PaymentBridge
     def void(gateway, data, secure_data)
       requires!(secure_data, 'authorization')
       authorization = secure_data['authorization']
+      #some gateways optionally accept an amount for voiding
+      amount = secure_data['amount'] ? Integer(secure_data['amount']) : nil
       options = build_options(data, secure_data)
       
+      master_params = {
+        :money=>amount,
+        :authorization=>authorization,
+        :identification=>authorization,
+        :reference=>authorization,
+        :options=>options
+      }
+      in_params = get_method_params(gateway.method(:void), master_params)
+      
       begin
-        response = gateway.void(authorization, options)
+        response = gateway.void(*in_params)
       rescue ActiveMerchant::Billing::Error => error
-        return build_expanded_response(data, secure_data, :options=>options, :exception=>error)
+        return build_expanded_response(data, secure_data, :options=>options, :amount=>amount, :exception=>error)
+      rescue ActiveMerchant::ResponseError => error
+        return build_expanded_response(data, secure_data, :options=>options, :amount=>amount, :exception=>error)
       end
-      return build_expanded_response(data, secure_data, :response=>response, :options=>options)
+      return build_expanded_response(data, secure_data, :response=>response, :options=>options, :amount=>amount)
     end
     
     def refund(gateway, data, secure_data)
@@ -348,9 +427,21 @@ class PaymentBridge
       authorization = secure_data['authorization']
       options = build_options(data, secure_data)
       
+      master_params = {
+        :money=>amount,
+        :authorization=>authorization,
+        :identification=>authorization,
+        :reference=>authorization,
+        :txn_id=>authorization,
+        :options=>options
+      }
+      in_params = get_method_params(gateway.method(:refund), master_params)
+      
       begin
-        response = gateway.refund(amount, authorization, options)
+        response = gateway.refund(*in_params)
       rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :options=>options, :amount=>amount, :exception=>error)
+      rescue ActiveMerchant::ResponseError => error
         return build_expanded_response(data, secure_data, :options=>options, :amount=>amount, :exception=>error)
       end
       return build_expanded_response(data, secure_data, :response=>response, :options=>options, :amount=>amount)
@@ -364,6 +455,8 @@ class PaymentBridge
         response = gateway.store(credit_card, options)
       rescue ActiveMerchant::Billing::Error => error
         return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :exception=>error)
+      rescue ActiveMerchant::ResponseError => error
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :exception=>error)
       end
       return build_expanded_response(data, secure_data, :response=>response, :options=>options, :credit_card=>credit_card)
     end
@@ -376,6 +469,8 @@ class PaymentBridge
       begin
         response = gateway.retrieve(authorization, options)
       rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :options=>options, :exception=>error)
+      rescue ActiveMerchant::ResponseError => error
         return build_expanded_response(data, secure_data, :options=>options, :exception=>error)
       end
       return build_expanded_response(data, secure_data, :response=>response, :options=>options)
@@ -391,6 +486,8 @@ class PaymentBridge
         response = gateway.update(authorization, credit_card, options)
       rescue ActiveMerchant::Billing::Error => error
         return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :exception=>error)
+      rescue ActiveMerchant::ResponseError => error
+        return build_expanded_response(data, secure_data, :options=>options, :credit_card=>credit_card, :exception=>error)
       end
       return build_expanded_response(data, secure_data, :response=>response, :options=>options, :credit_card=>credit_card)
     end
@@ -403,6 +500,8 @@ class PaymentBridge
       begin
         response = gateway.unstore(authorization, options)
       rescue ActiveMerchant::Billing::Error => error
+        return build_expanded_response(data, secure_data, :options=>options, :exception=>error)
+      rescue ActiveMerchant::ResponseError => error
         return build_expanded_response(data, secure_data, :options=>options, :exception=>error)
       end
       return build_expanded_response(data, secure_data, :response=>response, :options=>options)

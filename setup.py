@@ -31,5 +31,6 @@ setup(name='payment_bridge',
       include_package_data = True,
       tests_require=(
         'nose',
+        'pyyaml',
       )
       )

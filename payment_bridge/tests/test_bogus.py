@@ -8,8 +8,10 @@ class TestBogusGateway(BaseGatewayTestCase):
     gateway = {
         'module':'bogus',
         'name':'test',
-        'params': {}
     }
+    
+    def read_gateway_params(self):
+        return {}
     
     ## Authorize ##
     

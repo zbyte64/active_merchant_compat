@@ -1,9 +1,18 @@
 import base64
 import json
 import unittest
+import yaml
+import os
 
 from payment_bridge.wsgi import BaseDirectPostApplication
 
+global_config = {}
+inpath = os.path.join(os.getcwd(), 'gateways.yaml')
+if os.path.exists(inpath):
+    infile = open(inpath)
+    global_config = yaml.load(infile) or {}
+else:
+    print "Please create the following file with gateway credentials:", inpath
 
 class BaseTestDirectPostApplication(BaseDirectPostApplication):
     def __init__(self, **kwargs):
@@ -82,11 +91,17 @@ class BaseGatewayTestCase(unittest.TestCase):
     gateway = {}
     
     def setUp(self):
-        self.application = BaseTestDirectPostApplication(redirect_to='http://localhost:8080/direct-post/', gateway=self.gateway)
+        self.checkGatewayConfigured()
+        gateway = dict(self.gateway)
+        gateway['params'] = self.read_gateway_params()
+        self.application = BaseTestDirectPostApplication(redirect_to='http://localhost:8080/direct-post/', gateway=gateway)
         self.data_source = PaymentData()
     
     def tearDown(self):
         self.application.shutdown()
+    
+    def read_gateway_params(self):
+        return global_config.get(self.gateway['module'], None)
     
     def get_supported_actions(self):
         if not hasattr(self, '_supported_actions'):
@@ -96,6 +111,10 @@ class BaseGatewayTestCase(unittest.TestCase):
                 self.skipTest(response['message'])
             self._supported_actions = response['supported_actions']
         return self._supported_actions
+    
+    def checkGatewayConfigured(self):
+        if self.read_gateway_params() == None:
+            self.skipTest("Gateway unconfigured")
     
     def checkGatewaySupport(self, action):
         if not action in self.get_supported_actions():
