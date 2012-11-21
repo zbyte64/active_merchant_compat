@@ -23,7 +23,10 @@ RUBY_PATH = 'ruby1.9.1' #specific to ubuntu
 class Bridge(object):
     def __init__(self, exec_path=RUBY_PATH, script_path=SCRIPT_PATH, environ=None):
         self.lock = Lock()
-        self.slave = Popen([exec_path, script_path], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=environ)
+        self.exec_path = exec_path
+        self.script_path = script_path
+        self.environ = environ
+        self.open()
     
     def send(self, **kwargs):
         kwargs['request_id'] = random.getrandbits(32)
@@ -35,19 +38,26 @@ class Bridge(object):
                 print 'slave has terminated.'
                 exit()
             out_payload = self.slave.stdout.readline()
+            try:
+                params = json.loads(out_payload)
+            except ValueError as error:
+                print error
+                print out_payload + '\n' + self.slave.stdout.read()
+                
+                #create a new exec since it crashed
+                self.close()
+                self.open()
+                raise
         finally:
             self.lock.release()
-        try:
-            params = json.loads(out_payload)
-        except ValueError as error:
-            print error
-            print out_payload + '\n' + self.slave.stdout.read()
-            raise
         
         #ensure we don't have someone else's response
         assert params['request_id'] == kwargs['request_id']
         
         return params
+    
+    def open(self):
+        self.slave = Popen([self.exec_path, self.script_path], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=self.environ)
     
     def close(self):
         #self.slave.stdin.close()
