@@ -262,7 +262,7 @@ class PaymentBridge
     def build_credit_card(data)
       requires!(data, 'cc_number', 'cc_exp_month', 'cc_exp_year', 'bill_first_name', 'bill_last_name', 'cc_ccv')
       return ActiveMerchant::Billing::CreditCard.new(
-        :number => data['cc_number'],
+        :number => data['cc_number'].gsub(/\s+/, ""), #remove all white spaces
         :month => data['cc_exp_month'],
         :year => data['cc_exp_year'],
         :first_name => data['bill_first_name'],

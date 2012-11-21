@@ -57,6 +57,9 @@ module ActiveMerchant #:nodoc:
             :email => options[:address]['email'] #TODO where to get this from
           }
           response = create_customer_profile(options)
+          if not response.success?()
+            return response
+          end
           _, profile_id, _, _ = split_authorization(response.authorization)
           options[:customer_profile_id] = profile_id
         end
@@ -66,6 +69,9 @@ module ActiveMerchant #:nodoc:
           }
         }
         response = create_customer_payment_profile(options)
+        if not response.success?()
+          return response
+        end
         _, _, payment_profile_id, ship_address_id = split_authorization(response.authorization)
         if options[:ship_address]
           #TODO copy options instead
@@ -87,7 +93,11 @@ module ActiveMerchant #:nodoc:
           return create_transaction(creditcard_or_reference, params)
         else
           response = store(creditcard_or_reference, options)
-          return create_transaction(response.authorization, params)
+          if response.success?()
+            return create_transaction(response.authorization, params)
+          else
+            return response
+          end
         end
       end
 
@@ -103,7 +113,11 @@ module ActiveMerchant #:nodoc:
           return create_transaction(creditcard_or_reference, params)
         else
           response = store(creditcard_or_reference, options)
-          return create_transaction(response.authorization, params)
+          if response.success?()
+            return create_transaction(response.authorization, params)
+          else
+            return response
+          end
         end
       end
 
@@ -132,7 +146,7 @@ module ActiveMerchant #:nodoc:
           :customer_address_id => shipping_address_id
         }
         if shipping_address_id
-          delete_customer_shippping_address(params)
+          delete_customer_shipping_address(params)
         end
         if payment_profile_id
           delete_customer_payment_profile(params)
@@ -142,10 +156,9 @@ module ActiveMerchant #:nodoc:
 
       # Retrieves a customer subscription/profile
       #TODO
-      def retrieve(reference, options = {})
-        requires!(options, :order_id)
-        commit(build_retrieve_subscription_request(reference, options), options)
-      end
+      #def retrieve(reference, options = {})
+      #  commit(build_retrieve_subscription_request(reference, options), options)
+      #end
       
       def authorization_string(*args)
         args.compact.join(";")

@@ -59,7 +59,6 @@ class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
         self.checkGatewaySupport('authorize')
         secure_data = {'amount':'100'}
         bill_info = self.data_source.get_all_info()
-        bill_info['cc_number'] = '1'
         bill_info['bill_first_name'] = u'안녕하'
         bill_info['bill_last_name'] = u'세요'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='authorize')
@@ -71,21 +70,21 @@ class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
     def test_capture_success(self):
         self.checkGatewaySupport('capture')
         secure_data = {'amount':'100',
-                       'authorization':'3',}
+                       'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='capture')
         self.assertTrue(response['success'], response['message'])
     
     def test_capture_failure(self):
         self.checkGatewaySupport('capture')
         secure_data = {'amount':'100',
-                       'authorization':'2',}
+                       'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='capture')
         self.assertFalse(response['success'], response['message'])
     
     def test_capture_exception(self):
         self.checkGatewaySupport('capture')
         secure_data = {'amount':'100',
-                       'authorization':'1',}
+                       'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='capture')
         self.assertFalse(response['success'], response['message'])
     
@@ -95,7 +94,6 @@ class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
         self.checkGatewaySupport('purchase')
         secure_data = {'amount':'100'}
         bill_info = self.data_source.get_all_info()
-        bill_info['cc_number'] = '1'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='purchase')
         self.assertTrue(response['success'], response['message'])
     
@@ -103,7 +101,6 @@ class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
         self.checkGatewaySupport('purchase')
         secure_data = {'amount':'100'}
         bill_info = self.data_source.get_all_info()
-        bill_info['cc_number'] = '2'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='purchase')
         self.assertFalse(response['success'], response['message'])
     
@@ -111,7 +108,6 @@ class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
         self.checkGatewaySupport('purchase')
         secure_data = {} #no data
         bill_info = self.data_source.get_all_info()
-        bill_info['cc_number'] = '1'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='purchase')
         self.assertFalse(response['success'], response['message'])
     
@@ -119,19 +115,19 @@ class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
     
     def test_void_success(self):
         self.checkGatewaySupport('void')
-        secure_data = {'authorization':'3',}
+        secure_data = {'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='void')
         self.assertTrue(response['success'], response['message'])
     
     def test_void_failure(self):
         self.checkGatewaySupport('void')
-        secure_data = {'authorization':'2',}
+        secure_data = {'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='void')
         self.assertFalse(response['success'], response['message'])
     
     def test_void_exception(self):
         self.checkGatewaySupport('void')
-        secure_data = {'authorization':'1',} #no data
+        secure_data = {'authorization':'1;2;3;4',} #no data
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='void')
         self.assertFalse(response['success'], response['message'])
     
@@ -140,21 +136,21 @@ class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
     def test_refund_success(self):
         self.checkGatewaySupport('refund')
         secure_data = {'amount':'100',
-                       'authorization':'3',}
+                       'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='refund')
         self.assertTrue(response['success'], response['message'])
     
     def test_refund_failure(self):
         self.checkGatewaySupport('refund')
         secure_data = {'amount':'100',
-                       'authorization':'2',}
+                       'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='refund')
         self.assertFalse(response['success'], response['message'])
     
     def test_refund_exception(self):
         self.checkGatewaySupport('refund')
         secure_data = {'amount':'100',
-                       'authorization':'1',} #no data
+                       'authorization':'1;2;3;4',} #no data
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='refund')
         self.assertFalse(response['success'], response['message'])
     
@@ -193,13 +189,13 @@ class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
     
     def test_retrieve_success(self):
         self.checkGatewaySupport('retrieve')
-        secure_data = {'authorization':'ABCDEF'}
+        secure_data = {'authorization':'1;2;3;4'}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='retrieve')
         self.assertTrue(response['success'], response['message'])
     
     def test_retrieve_failure(self):
         self.checkGatewaySupport('retrieve')
-        secure_data = {'authorization':'ABCDEF'}
+        secure_data = {'authorization':'1;2;3;4'}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='retrieve')
         self.assertFalse(response['success'], response['message'])
     
@@ -214,17 +210,15 @@ class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
     
     def test_update_success(self):
         self.checkGatewaySupport('update')
-        secure_data = {'authorization':'ABCDEF'}
+        secure_data = {'authorization':'1;2;3;4'}
         bill_info = self.data_source.get_all_info()
-        bill_info['cc_number'] = '1'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='update')
         self.assertTrue(response['success'], response['message'])
     
     def test_update_failure(self):
         self.checkGatewaySupport('update')
-        secure_data = {'authorization':'ABCDEF'}
+        secure_data = {'authorization':'1;2;3;4'}
         bill_info = self.data_source.get_all_info()
-        bill_info['cc_number'] = '2'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='update')
         self.assertFalse(response['success'], response['message'])
     
@@ -238,13 +232,13 @@ class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
     
     def test_unstore_success(self):
         self.checkGatewaySupport('unstore')
-        secure_data = {'authorization':'1'}
+        secure_data = {'authorization':'1;1;1;1'}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='unstore')
         self.assertTrue(response['success'], response['message'])
     
     def test_unstore_failure(self):
         self.checkGatewaySupport('unstore')
-        secure_data = {'authorization':'2'}
+        secure_data = {'authorization':'2;1;1;1'}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='unstore')
         self.assertFalse(response['success'], response['message'])
 
