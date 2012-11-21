@@ -21,7 +21,6 @@ class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
         self.checkGatewaySupport('authorize')
         secure_data = {'amount':'100'}
         bill_info = self.data_source.get_all_info()
-        bill_info['cc_number'] = '1'
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='authorize')
         self.assertTrue(response['success'], response['message'])
     

@@ -41,7 +41,7 @@ class Bridge(object):
             params = json.loads(out_payload)
         except ValueError as error:
             print error
-            print out_payload
+            print out_payload + '\n' + self.slave.stdout.read()
             raise
         
         #ensure we don't have someone else's response

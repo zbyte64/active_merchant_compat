@@ -82,12 +82,13 @@ module ActiveMerchant #:nodoc:
       
       def authorize(money, creditcard_or_reference, options = {})
         #every action must be done through a payment profile, so this will create a profile on CIM!
-        if not creditcard_or_reference.is_a?(String)
-          response = store(creditcard_or_reference)
-          credit_card_or_reference = response.authorization
+        params = {:type => :auth_only, :amount => "%.2f" % (money / 100.0)}
+        if creditcard_or_reference.is_a?(String)
+          return create_transaction(creditcard_or_reference, params)
+        else
+          response = store(creditcard_or_reference, options)
+          return create_transaction(response.authorization, params)
         end
-        
-        create_transaction(creditcard_or_reference, {:type => :auth_only, :amount => "%.2f" % (money / 100.0)})
       end
 
       # Capture an authorization that has previously been requested
@@ -97,12 +98,13 @@ module ActiveMerchant #:nodoc:
 
       def purchase(money, creditcard_or_reference, options = {})
         #every action must be done through a payment profile, so this will create a profile on CIM!
-        if not creditcard_or_reference.is_a?(String)
-          response = store(creditcard_or_reference)
-          credit_card_or_reference = response.authorization
+        params = {:type => :capture_only, :amount => "%.2f" % (money / 100.0)}
+        if creditcard_or_reference.is_a?(String)
+          return create_transaction(creditcard_or_reference, params)
+        else
+          response = store(creditcard_or_reference, options)
+          return create_transaction(response.authorization, params)
         end
-        
-        create_transaction(creditcard_or_reference, {:type => :capture_only, :amount => "%.2f" % (money / 100.0)})
       end
 
       def void(identification, options = {})

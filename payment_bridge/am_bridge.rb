@@ -224,12 +224,12 @@ class PaymentBridge
       bill_address = nil
       ship_address = nil
       
-      if params[:options] and params[:options]['address']
-        bill_address = params[:options]['address']
+      if params[:options] and params[:options][:address]
+        bill_address = params[:options][:address]
       end
       
-      if params[:options] and params[:options]['ship_address']
-        ship_address = params[:options]['ship_address']
+      if params[:options] and params[:options][:ship_address]
+        ship_address = params[:options][:ship_address]
       end
       
       return {'response' => params[:response],
@@ -249,17 +249,18 @@ class PaymentBridge
       
       address = parse_address_from_post(data)
       if address
-        options['address'] = address
+        options[:address] = address
       end
       
       ship_address = parse_address_from_post(data, prefix='ship')
       if ship_address
-        options['ship_address'] = ship_address
+        options[:ship_address] = ship_address
       end
       return options
     end
     
     def build_credit_card(data)
+      requires!(data, 'cc_number', 'cc_exp_month', 'cc_exp_year', 'bill_first_name', 'bill_last_name', 'cc_ccv')
       return ActiveMerchant::Billing::CreditCard.new(
         :number => data['cc_number'],
         :month => data['cc_exp_month'],
