@@ -54,7 +54,7 @@ module ActiveMerchant #:nodoc:
         if not options[:customer_profile_id]
           requires!(options, :address)
           options[:profile] = {
-            :email => options[:address]['email'] #TODO where to get this from
+            :email => options[:address][:email]
           }
           response = create_customer_profile(options)
           if not response.success?()

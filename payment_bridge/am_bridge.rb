@@ -156,7 +156,7 @@ class PaymentBridge
     
     def add_address_with_prefix(response, address, prefix)
       address.each do |key, value|
-        response[prefix+"_"+key] = value
+        response[prefix+"_"+key.to_s] = value
       end
     end
     
@@ -168,7 +168,7 @@ class PaymentBridge
             if post_data.has_key?(f_key)
                 value_found = true
             end
-            address[key] = post_data.fetch(f_key, nil)
+            address[key.to_sym] = post_data.fetch(f_key, nil)
         end
         
         if value_found
@@ -180,7 +180,7 @@ class PaymentBridge
     
     def process_direct_post(gateway, action, data, secure_data)
         #should return dict containing: response, credit_card, passthrough, amount, currency_code
-        if not get_supported_actions(gateway).index(action)
+        if get_supported_actions(gateway).index(action) == nil
           return invalid_action(gateway, action, data, secure_data)
         end
         

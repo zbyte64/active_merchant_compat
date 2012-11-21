@@ -61,9 +61,10 @@ module ActiveMerchant #:nodoc:
       # R – Refund request
       def refund(money, authorization, options = {})
         _, _, customer_ref_num = split_authorization(authorization)
-        if customer_ref_num:
+        if customer_ref_num
           options[:customer_ref_num] = customer_ref_num
           options[:profile_txn] = true
+        end
         
         order = build_new_order_xml('R', money, options.merge(:authorization => authorization)) do |xml|
           add_refund(xml, options[:currency])
@@ -79,7 +80,7 @@ module ActiveMerchant #:nodoc:
       # Updates a customer subscription/profile
       def update(reference, creditcard, options = {})
         _, _, customer_ref_num = split_authorization(authorization)
-        options['customer_ref_num'] = customer_ref_num
+        options[:customer_ref_num] = customer_ref_num
         update_customer_profile(creditcard, options)
       end
 
@@ -121,15 +122,15 @@ module ActiveMerchant #:nodoc:
         request = lambda{|url| parse(ssl_post(url, order, headers))}
 
         # Failover URL will be attempted in the event of a connection error
-        response = begin
-          request.call(remote_url)
+        begin
+          response = request.call(remote_url)
         rescue ConnectionError
-          request.call(remote_url(:secondary))
+          response = request.call(remote_url(:secondary))
         end
         
         #TODO validate this
         #we want the string to be transaction, order id, customer number
-        if message_type in [:add_customer_profile, :update_customer_profile, :retrieve_customer_profile, :delete_customer_profile]
+        if [:add_customer_profile, :update_customer_profile, :retrieve_customer_profile, :delete_customer_profile].index(message_type) != nil
           authorization = authorization_string("", response[:order_id], response[:tx_ref_num])
         else
           authorization = authorization_string(response[:tx_ref_num], response[:order_id], "")
