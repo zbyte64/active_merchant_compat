@@ -43,15 +43,18 @@ module ActiveMerchant #:nodoc:
         }
         options[:transaction] = transaction.merge(params)
         response = create_customer_profile_transaction(options)
-        response.authorization = merge_authorization_strings(creditcard_or_reference, response.authorization)
+        
+        authorization = merge_authorization_strings(reference, response.authorization)
+        response.instance_variable_set(:@authorization, authorization)
         return response
       end
       
       def store(creditcard, options = {})
         #TODO check that the responses are successful, if not delete other profiles
         if not options[:customer_profile_id]
+          requires!(options, :address)
           options[:profile] = {
-            :email => options[:email] #TODO where to get this from
+            :email => options[:address]['email'] #TODO where to get this from
           }
           response = create_customer_profile(options)
           _, profile_id, _, _ = split_authorization(response.authorization)
@@ -70,7 +73,8 @@ module ActiveMerchant #:nodoc:
           response = create_customer_shipping_address(options)
           _, _, _, ship_address_id = split_authorization(response.authorization)
         end
-        response.authorization = authorization_string("", profile_id, payment_profile_id, ship_address_id)
+        authorization = authorization_string("", profile_id, payment_profile_id, ship_address_id)
+        response.instance_variable_set(:@authorization, authorization)
         return response
       end
       
@@ -83,12 +87,12 @@ module ActiveMerchant #:nodoc:
           credit_card_or_reference = response.authorization
         end
         
-        create_transaction(creditcard_or_reference, {:type => :auth_only, :amount => "%.2f" % money / 100.0})
+        create_transaction(creditcard_or_reference, {:type => :auth_only, :amount => "%.2f" % (money / 100.0)})
       end
 
       # Capture an authorization that has previously been requested
       def capture(money, authorization, options = {})
-        create_transaction(creditcard_or_reference, {:type => :prior_auth_capture, :amount => "%.2f" % money / 100.0})
+        create_transaction(authorization, {:type => :prior_auth_capture, :amount => "%.2f" % (money / 100.0)})
       end
 
       def purchase(money, creditcard_or_reference, options = {})
@@ -98,7 +102,7 @@ module ActiveMerchant #:nodoc:
           credit_card_or_reference = response.authorization
         end
         
-        create_transaction(creditcard_or_reference, {:type => :capture_only, :amount => "%.2f" % money / 100.0})
+        create_transaction(creditcard_or_reference, {:type => :capture_only, :amount => "%.2f" % (money / 100.0)})
       end
 
       def void(identification, options = {})
@@ -106,7 +110,7 @@ module ActiveMerchant #:nodoc:
       end
 
       def refund(money, identification, options = {})
-        create_transaction(identification, {:type => :refund, :amount => "%.2f" % money / 100.0})
+        create_transaction(identification, {:type => :refund, :amount => "%.2f" % (money / 100.0)})
       end
 
       # Updates a customer subscription/profile

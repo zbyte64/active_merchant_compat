@@ -4,7 +4,7 @@ import unittest
 from payment_bridge.tests.common import BaseGatewayTestCase
 
 
-class TestBogusGateway(BaseGatewayTestCase):
+class TestAuthorizeNetCIMGateway(BaseGatewayTestCase):
     gateway = {
         'module':'authorize_net_cim_compat',
         'name':'test',
