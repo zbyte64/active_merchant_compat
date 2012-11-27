@@ -137,10 +137,14 @@ class PaymentBridge
         
         if expanded_response['credit_card'] != nil
             credit_card = expanded_response['credit_card']
-            response_params['cc_display'] = credit_card.display_number
-            response_params['cc_exp_month'] = credit_card.month
-            response_params['cc_exp_year'] = credit_card.year
-            response_params['cc_type'] = credit_card.brand
+            if credit_card.is_a?(String)
+              response_params['referenced_authorization'] = credit_card
+            else
+              response_params['cc_display'] = credit_card.display_number
+              response_params['cc_exp_month'] = credit_card.month
+              response_params['cc_exp_year'] = credit_card.year
+              response_params['cc_type'] = credit_card.brand
+            end
         end
         
         if expanded_response['money'] != nil

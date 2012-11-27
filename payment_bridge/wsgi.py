@@ -174,7 +174,7 @@ class DjangoDirectPostApplication(BaseDirectPostApplication):
     Uses django's signing mechanism to encrypt and decrypt payloads
     Requires Django 1.4 or later
     """
-    salt_namespace = 'merchant_gateways.wsgi'
+    salt_namespace = 'payment_bridge.wsgi'
     settings_name = 'PAYMENT_GATEWAYS'
     
     def load_gateways(self):
