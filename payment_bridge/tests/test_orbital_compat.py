@@ -20,7 +20,7 @@ class TestOrbitalGateway(BaseGatewayTestCase):
     
     def test_authorize_success(self):
         self.checkGatewaySupport('authorize')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'order_id':'ABCDEF',}
         bill_info = self.data_source.get_all_info()
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='authorize')
@@ -28,7 +28,7 @@ class TestOrbitalGateway(BaseGatewayTestCase):
     
     def test_authorize_failure(self):
         self.checkGatewaySupport('authorize')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'order_id':'ABCDEF',}
         bill_info = self.data_source.get_all_info()
         bill_info['cc_number'] = '2'
@@ -43,9 +43,9 @@ class TestOrbitalGateway(BaseGatewayTestCase):
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='authorize')
         self.assertFalse(response['success'], response['message'])
     
-    def test_authorize_bad_amount_error(self):
+    def test_authorize_bad_money_error(self):
         self.checkGatewaySupport('authorize')
-        secure_data = {'amount':'$50',
+        secure_data = {'money':'$50',
                        'order_id':'ABCDEF',} #bad data
         bill_info = self.data_source.get_all_info()
         bill_info['cc_number'] = '1'
@@ -54,7 +54,7 @@ class TestOrbitalGateway(BaseGatewayTestCase):
     
     def test_authorize_no_credit_card_error(self):
         self.checkGatewaySupport('authorize')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'order_id':'ABCDEF',}
         bill_info = self.data_source.get_bill_address()
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='authorize')
@@ -62,7 +62,7 @@ class TestOrbitalGateway(BaseGatewayTestCase):
     
     def test_authorize_success_with_unicode(self):
         self.checkGatewaySupport('authorize')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'order_id':'ABCDEF',}
         bill_info = self.data_source.get_all_info()
         bill_info['bill_first_name'] = u'안녕하'
@@ -75,21 +75,21 @@ class TestOrbitalGateway(BaseGatewayTestCase):
     
     def test_capture_success(self):
         self.checkGatewaySupport('capture')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='capture')
         self.assertTrue(response['success'], response['message'])
     
     def test_capture_failure(self):
         self.checkGatewaySupport('capture')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='capture')
         self.assertFalse(response['success'], response['message'])
     
     def test_capture_exception(self):
         self.checkGatewaySupport('capture')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='capture')
         self.assertFalse(response['success'], response['message'])
@@ -98,7 +98,7 @@ class TestOrbitalGateway(BaseGatewayTestCase):
     
     def test_purchase_success(self):
         self.checkGatewaySupport('purchase')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'order_id':'ABCDEF',}
         bill_info = self.data_source.get_all_info()
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='purchase')
@@ -106,7 +106,7 @@ class TestOrbitalGateway(BaseGatewayTestCase):
     
     def test_purchase_failure(self):
         self.checkGatewaySupport('purchase')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'order_id':'ABCDEF',}
         bill_info = self.data_source.get_all_info()
         response = self.application.call_bridge(data=bill_info, secure_data=secure_data, gateway='test', action='purchase')
@@ -143,21 +143,21 @@ class TestOrbitalGateway(BaseGatewayTestCase):
     
     def test_refund_success(self):
         self.checkGatewaySupport('refund')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='refund')
         self.assertTrue(response['success'], response['message'])
     
     def test_refund_failure(self):
         self.checkGatewaySupport('refund')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'authorization':'1;2;3;4',}
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='refund')
         self.assertFalse(response['success'], response['message'])
     
     def test_refund_exception(self):
         self.checkGatewaySupport('refund')
-        secure_data = {'amount':'100',
+        secure_data = {'money':'100',
                        'authorization':'1;2;3;4',} #no data
         response = self.application.call_bridge(data={}, secure_data=secure_data, gateway='test', action='refund')
         self.assertFalse(response['success'], response['message'])
