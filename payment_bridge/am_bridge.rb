@@ -104,9 +104,11 @@ class PaymentBridge
     end
     
     def construct_callback_params(expanded_response)
-        response_params = expanded_response.fetch('passthrough', {})
+        response_params = expanded_response.fetch(:passthrough, {})
         
-        response = expanded_response['response']
+        response_params['session_data'] = expanded_response[:session_data]
+        
+        response = expanded_response[:response]
         if response != nil
           response_params = response_params.merge({
             'success' => response.success?(),
@@ -121,22 +123,22 @@ class PaymentBridge
           response_params['success'] = false
         end
         
-        if expanded_response['message'] != nil
-          response_params['message'] = expanded_response['message']
-        elsif expanded_response['exception'] != nil
-          response_params['message'] = expanded_response['exception']
+        if expanded_response[:message] != nil
+          response_params['message'] = expanded_response[:message]
+        elsif expanded_response[:exception] != nil
+          response_params['message'] = expanded_response[:exception]
         end
         
-        if expanded_response['bill_address'] != nil
-          add_address_with_prefix(response_params, expanded_response['bill_address'], 'bill')
+        if expanded_response[:bill_address] != nil
+          add_address_with_prefix(response_params, expanded_response[:bill_address], 'bill')
         end
         
-        if expanded_response['ship_address'] != nil
-          add_address_with_prefix(response_params, expanded_response['ship_address'], 'ship')
+        if expanded_response[:ship_address] != nil
+          add_address_with_prefix(response_params, expanded_response[:ship_address], 'ship')
         end
         
-        if expanded_response['credit_card'] != nil
-            credit_card = expanded_response['credit_card']
+        if expanded_response[:credit_card] != nil
+            credit_card = expanded_response[:credit_card]
             if credit_card.is_a?(String)
               response_params['referenced_authorization'] = credit_card
             else
@@ -147,12 +149,12 @@ class PaymentBridge
             end
         end
         
-        if expanded_response['money'] != nil
-            response_params['money'] = expanded_response['money']
+        if expanded_response[:money] != nil
+            response_params['money'] = expanded_response[:money]
         end
         
-        if expanded_response['currency_code'] != nil
-            response_params['currency_code'] = expanded_response['currency_code']
+        if expanded_response[:currency_code] != nil
+            response_params['currency_code'] = expanded_response[:currency_code]
         end
         
         return response_params
@@ -236,15 +238,16 @@ class PaymentBridge
         ship_address = params[:options][:ship_address]
       end
       
-      return {'response' => params[:response],
-              'credit_card' => params[:credit_card],
-              'money' => params[:money],
-              'currency_code' => params[:currency_code],
-              'exception' => params[:exception],
-              'passthrough' => passthrough,
-              'message' => params[:message],
-              'bill_address' => bill_address,
-              'ship_address' => ship_address}
+      return {:response => params[:response],
+              :credit_card => params[:credit_card],
+              :money => params[:money],
+              :currency_code => params[:currency_code],
+              :exception => params[:exception],
+              :passthrough => passthrough,
+              :message => params[:message],
+              :bill_address => bill_address,
+              :ship_address => ship_address,
+              :session_data => secure_data[:session_data]}
     end
     
     def build_options(data, secure_data)
